@@ -312,11 +312,11 @@ function displaySearchResults(results) {
 
         return `
             <div class="search-result-item"
-                 data-lat="${result.lat}"
-                 data-lon="${result.lon}"
-                 data-name="${mainText}">
-                <div class="result-main">${mainText}</div>
-                <div class="result-secondary">${secondaryText}</div>
+                 data-lat="${escapeHtml(result.lat)}"
+                 data-lon="${escapeHtml(result.lon)}"
+                 data-name="${escapeHtml(mainText)}">
+                <div class="result-main">${escapeHtml(mainText)}</div>
+                <div class="result-secondary">${escapeHtml(secondaryText)}</div>
             </div>
         `;
     }).join('');
@@ -359,7 +359,7 @@ function onSearchResultClick(e) {
         })
     }).addTo(map);
 
-    selectedMarker.bindPopup(`Dirección: ${name}`).openPopup();
+    selectedMarker.bindPopup(`Dirección: ${escapeHtml(name)}`).openPopup();
 
     // Actualizar formulario
     document.getElementById('lat').value = lat.toFixed(6);
@@ -426,7 +426,7 @@ async function obtenerDireccionDeCoordenadas(latlng, comunaDetectada) {
 
         // Actualizar popup del marcador
         if (selectedMarker) {
-            selectedMarker.setPopupContent(`Dirección: ${direccion}`);
+            selectedMarker.setPopupContent(`Dirección: ${escapeHtml(direccion)}`);
         }
 
         showUbicacionStatus(`Bache marcado: ${direccion}`, 'success');
@@ -436,7 +436,7 @@ async function obtenerDireccionDeCoordenadas(latlng, comunaDetectada) {
 
         // Si falla, usar comuna como fallback
         const fallbackDireccion = comunaDetectada ?
-            `Ubicación en ${comunaDetectada.nombre}` :
+            `Ubicación en ${escapeHtml(comunaDetectada.nombre)}` :
             'Ubicación seleccionada';
 
         if (selectedMarker) {
@@ -517,7 +517,7 @@ async function obtenerDireccionDeGPS(latlng, accuracy, comunaDetectada) {
 
         // Actualizar popup del marcador
         if (selectedMarker) {
-            selectedMarker.setPopupContent(`Dirección: ${direccion}`);
+            selectedMarker.setPopupContent(`Dirección: ${escapeHtml(direccion)}`);
         }
 
         showUbicacionStatus(
@@ -538,7 +538,7 @@ async function obtenerDireccionDeGPS(latlng, accuracy, comunaDetectada) {
 
         if (selectedMarker) {
             selectedMarker.setPopupContent(
-                comunaDetectada ? `Tu ubicación en ${comunaDetectada.nombre}` : 'Tu ubicación actual'
+                comunaDetectada ? `Tu ubicación en ${escapeHtml(comunaDetectada.nombre)}` : 'Tu ubicación actual'
             );
         }
     }
@@ -1130,7 +1130,7 @@ async function loadComunasGeoJSON() {
                 // Guardar referencia al código de comuna en el layer
                 layer.codigoComuna = props.codigo_comuna;
 
-                layer.bindTooltip(props.nombre_comuna, {
+                layer.bindTooltip(escapeHtml(props.nombre_comuna), {
                     permanent: false,
                     direction: 'center'
                 });
@@ -1212,12 +1212,12 @@ function addBacheMarker(bache) {
     const fecha = new Date(bache.created_at).toLocaleDateString('es-CL');
 
     marker.bindPopup(`
-        <div class="popup-title">Bache #${bache.id}</div>
+        <div class="popup-title">Bache #${escapeHtml(bache.id)}</div>
         <div class="popup-info">
-            ${bache.direccion ? `<p><strong>Dirección:</strong> ${bache.direccion}</p>` : ''}
-            <p><strong>Severidad:</strong> ${bache.severidad}</p>
-            <p><strong>Fecha:</strong> ${fecha}</p>
-            ${bache.comentario ? `<p><strong>Comentario:</strong> ${bache.comentario}</p>` : ''}
+            ${bache.direccion ? `<p><strong>Dirección:</strong> ${escapeHtml(bache.direccion)}</p>` : ''}
+            <p><strong>Severidad:</strong> ${escapeHtml(bache.severidad)}</p>
+            <p><strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
+            ${bache.comentario ? `<p><strong>Comentario:</strong> ${escapeHtml(bache.comentario)}</p>` : ''}
         </div>
     `);
 
@@ -1457,22 +1457,8 @@ async function onGenerarResumen() {
 
         const data = await response.json();
 
-        // Mostrar respuesta del agente
-        // Convertir markdown básico a HTML
-        let respuestaHTML = data.respuesta
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // Negrita
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')              // Cursiva
-            .replace(/^### (.*$)/gm, '<h4>$1</h4>')            // H3
-            .replace(/^## (.*$)/gm, '<h3>$1</h3>')             // H2
-            .replace(/^# (.*$)/gm, '<h2>$1</h2>')              // H1
-            .replace(/^- (.*$)/gm, '<li>$1</li>')              // Listas
-            .replace(/\n\n/g, '</p><p>')                       // Párrafos
-            .replace(/\n/g, '<br>');                           // Saltos de línea
-
-        // Envolver listas en <ul>
-        respuestaHTML = respuestaHTML.replace(/(<li>.*<\/li>)+/g, '<ul>$&</ul>');
-
-        document.getElementById('resumenTexto').innerHTML = `<p>${respuestaHTML}</p>`;
+        // Mostrar respuesta del agente (escapada + markdown mínimo, ver escape.js)
+        document.getElementById('resumenTexto').innerHTML = mdToHtml(data.respuesta);
 
         // Ocultar sección de top5 ya que el agente da info más flexible
         document.getElementById('top5Container').classList.add('hidden');
@@ -1484,7 +1470,7 @@ async function onGenerarResumen() {
     } catch (error) {
         console.error('Error:', error);
         document.getElementById('resumenTexto').innerHTML =
-            `<p class="error-message">Error: ${error.message}</p>`;
+            `<p class="error-message">Error: ${escapeHtml(error.message)}</p>`;
         showToast('Error al consultar el agente', 'error');
     } finally {
         btn.disabled = false;
