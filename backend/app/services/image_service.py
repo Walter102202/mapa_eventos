@@ -1,11 +1,14 @@
 """Servicio para manejo y moderación de imágenes."""
 
 import base64
+import io
 import uuid
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
 
+from fastapi import UploadFile
 from openai import OpenAI
+from PIL import Image, UnidentifiedImageError
 
 from ..config import get_settings
 
@@ -18,6 +21,10 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 # Extensiones permitidas
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+
+# Formatos que Pillow debe detectar en el contenido (la extensión sola no alcanza)
+ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP"}
+CHUNK_SIZE = 64 * 1024
 
 
 def get_openai_client() -> OpenAI:
@@ -40,6 +47,49 @@ def validate_image(filename: str, file_size: int) -> Tuple[bool, str]:
     # Verificar tamaño
     if file_size > MAX_FILE_SIZE:
         return False, f"El archivo es muy grande. Máximo {MAX_FILE_SIZE // (1024*1024)} MB"
+
+    return True, ""
+
+
+async def read_upload_limited(upload: UploadFile, max_bytes: Optional[int] = None) -> Optional[bytes]:
+    """
+    Leer un upload en chunks y cortar apenas supera max_bytes.
+
+    Evita cargar en memoria un archivo gigante antes de validar el tamaño.
+
+    Returns:
+        bytes con el contenido, o None si superó el máximo.
+    """
+    limite = max_bytes if max_bytes is not None else MAX_FILE_SIZE
+    chunks = []
+    total = 0
+    while True:
+        chunk = await upload.read(CHUNK_SIZE)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > limite:
+            return None
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def validate_image_content(data: bytes) -> Tuple[bool, str]:
+    """
+    Validar que los bytes sean realmente una imagen JPEG/PNG/WEBP (magic bytes + estructura).
+
+    Returns:
+        Tuple[bool, str]: (es_válido, mensaje_error)
+    """
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            formato = img.format
+            img.verify()
+    except (UnidentifiedImageError, OSError, ValueError):
+        return False, "El archivo no es una imagen válida"
+
+    if formato not in ALLOWED_FORMATS:
+        return False, f"Formato {formato} no permitido. Use: {', '.join(sorted(ALLOWED_FORMATS))}"
 
     return True, ""
 
