@@ -62,6 +62,11 @@ MYSQL_PASSWORD=tu_password
 MYSQL_DATABASE=baches_rm
 
 OPENAI_API_KEY=sk-tu-api-key
+
+CORS_ORIGINS=                     # orígenes permitidos separados por coma; vacío = sin CORS
+RATE_LIMIT_ENABLED=true           # activa el límite de tasa en los endpoints que llaman a OpenAI
+RATE_LIMIT_IA=5/minute            # límite por IP para agente, resumen y con-foto
+ADMIN_TOKEN=                      # obligatorio para /resumen?refresh=true, va en el header X-Admin-Token
 ```
 
 ### 4. Crear base de datos
