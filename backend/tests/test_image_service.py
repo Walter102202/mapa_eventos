@@ -55,6 +55,14 @@ def test_validate_image_content_rechaza_formato_no_permitido():
     assert not ok and "GIF" in msg
 
 
+def test_validate_image_content_rechaza_bomba_de_descompresion(monkeypatch):
+    # Con MAX_IMAGE_PIXELS=1, cualquier imagen con más de 2 píxeles dispara
+    # DecompressionBombError al abrirla; debe rechazarse sin propagar la excepción.
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1)
+    ok, msg = validate_image_content(_png_bytes())
+    assert not ok and msg != ""
+
+
 def test_read_upload_limited_devuelve_bytes_si_cabe():
     data = b"x" * 1000
     upload = UploadFile(file=io.BytesIO(data), filename="a.png")

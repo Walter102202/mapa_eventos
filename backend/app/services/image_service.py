@@ -85,6 +85,8 @@ def validate_image_content(data: bytes) -> Tuple[bool, str]:
         with Image.open(io.BytesIO(data)) as img:
             formato = img.format
             img.verify()
+    except Image.DecompressionBombError:
+        return False, "La imagen es demasiado grande para procesarse"
     except (UnidentifiedImageError, OSError, ValueError):
         return False, "El archivo no es una imagen válida"
 
