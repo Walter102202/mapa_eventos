@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informes por Comuna - Reportes de Baches</title>
+
+    <!-- App CSS -->
+    <link rel="stylesheet" href="/static/css/styles.css?v=2.1">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <h1>Reportes de Baches</h1>
+            <p class="subtitle">Región Metropolitana de Santiago</p>
+        </header>
+
+        <!-- Navegación -->
+        <nav class="tabs-nav">
+            <a href="/" class="tab-btn">
+                <span class="tab-icon">📝</span>
+                Reportar Baches
+            </a>
+            <a href="/informes" class="tab-btn active">
+                <span class="tab-icon">📊</span>
+                Informes por Comuna
+            </a>
+        </nav>
+
+        <!-- Contenido principal -->
+        <div class="page-content">
+            <!-- Vista principal: Lista de comunas -->
+            <div id="informes-lista" class="informes-container">
+                <div class="informes-header">
+                    <div class="informes-title-row">
+                        <h2>Informes por Comuna</h2>
+                        <div class="search-comunas-wrapper">
+                            <input type="text"
+                                   id="searchComunas"
+                                   class="search-comunas-input"
+                                   placeholder="🔍 Buscar comuna...">
+                        </div>
+                    </div>
+                    <p class="informes-subtitle">Selecciona una comuna para ver su último informe de baches</p>
+                </div>
+                <div id="comunasGrid" class="comunas-grid">
+                    <!-- Se llena dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Vista detalle: Informe de comuna -->
+            <div id="informes-detalle" class="informe-detalle hidden">
+                <button id="btnVolverLista" class="btn-volver">
+                    ← Volver a la lista
+                </button>
+                <div class="informe-header">
+                    <h2 id="informeComuna">Comuna</h2>
+                    <div id="informeStats" class="informe-stats"></div>
+                </div>
+                <div id="informeContenido" class="informe-contenido">
+                    <!-- Se llena dinámicamente -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast notifications -->
+        <div id="toast" class="toast hidden"></div>
+    </div>
+
+    <!-- App JS para Informes -->
+    <script src="/static/js/informes.js?v=1.3"></script>
+</body>
+</html>

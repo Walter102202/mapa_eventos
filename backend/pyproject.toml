@@ -1,0 +1,12 @@
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+extend-exclude = ["venv", ".venv", "uploads"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+ignore = ["E501", "B008"]  # B008: Depends()/File() en defaults es el patrón de FastAPI
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider"  # OneDrive bloquea .pytest_cache

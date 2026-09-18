@@ -1,0 +1,21 @@
+# Secretos
+.env
+**/.env
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Subidas de usuarios
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Editor / SO
+.vscode/
+.claude/
+.DS_Store
+Thumbs.db
