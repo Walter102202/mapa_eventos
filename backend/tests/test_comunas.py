@@ -63,3 +63,32 @@ def test_refresh_con_token_correcto_devuelve_200(client, monkeypatch):
 def test_resumen_sin_refresh_no_requiere_token(client, monkeypatch):
     _mock_resumen(monkeypatch)
     assert client.get("/api/comunas/13101/resumen").status_code == 200
+
+
+def test_agente_no_filtra_detalle_del_error(client, monkeypatch):
+    def explota(**kw):
+        raise RuntimeError("Access denied for user 'root'@'10.0.0.5'")
+
+    monkeypatch.setattr(agent_service, "run_agent", explota)
+    r = client.post("/api/comunas/agente", json={"prompt": "resumen de Ñuñoa"})
+    assert r.status_code == 500
+    assert "10.0.0.5" not in r.json()["detail"]
+    assert "root" not in r.json()["detail"]
+
+
+def test_generate_resumen_no_filtra_detalle_del_error(monkeypatch):
+    from tests.conftest import FakeSession
+
+    monkeypatch.setattr(llm_service, "get_cached_resumen", lambda db, codigo, max_age_hours=24: None)
+
+    def explota(prompt):
+        raise RuntimeError("Incorrect API key provided: sk-abc123")
+
+    monkeypatch.setattr(llm_service, "call_openai", explota)
+    out = llm_service.generate_resumen(
+        db=FakeSession(), codigo_comuna="13101", nombre_comuna="Santiago",
+        total_baches=3, top_clusters=[], comentarios=[], use_cache=True,
+    )
+    assert "sk-abc123" not in out["resumen"]
+    assert "sk-abc123" not in str(out.get("error", ""))
+    assert "Santiago" in out["resumen"]

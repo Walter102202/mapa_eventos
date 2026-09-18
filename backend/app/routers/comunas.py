@@ -1,5 +1,6 @@
 """Router para endpoints de comunas."""
 
+import logging
 from datetime import datetime
 from typing import Optional
 
@@ -20,6 +21,8 @@ from ..schemas import (
     TopBacheCluster,
 )
 from ..services import agent_service, comuna_service, llm_service, reporte_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/comunas", tags=["comunas"])
 
@@ -274,11 +277,12 @@ def consultar_agente(
             "iterations": result.get("iterations", 0)
         }
 
-    except Exception as e:
+    except Exception:
+        logger.exception("Error al ejecutar el agente para prompt=%r comuna=%r", body.prompt[:80], body.codigo_comuna)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al procesar la consulta: {str(e)}"
-        ) from e
+            detail="Error al procesar la consulta. Intente nuevamente más tarde.",
+        ) from None
 
 
 @router.get("/{codigo_comuna}/informe")
