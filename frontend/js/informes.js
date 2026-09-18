@@ -133,10 +133,11 @@ async function loadComunasGrid() {
 
         grid.innerHTML = `
             <div class="error-grid">
-                ${errorMsg}
-                <button class="btn-reintentar" onclick="loadComunasGrid()">Reintentar</button>
+                ${escapeHtml(errorMsg)}
+                <button class="btn-reintentar">Reintentar</button>
             </div>
         `;
+        grid.querySelector('.btn-reintentar').addEventListener('click', loadComunasGrid);
     }
 }
 
@@ -155,9 +156,9 @@ function renderComunasGrid(comunas, grid) {
 
         return `
             <div class="comuna-card ${tieneInforme ? 'tiene-informe' : 'sin-informe'}"
-                 data-codigo="${codigo}"
-                 data-nombre="${nombre}">
-                <h3 class="comuna-card-nombre">${nombre}</h3>
+                 data-codigo="${escapeHtml(codigo)}"
+                 data-nombre="${escapeHtml(nombre)}">
+                <h3 class="comuna-card-nombre">${escapeHtml(nombre)}</h3>
                 <div class="comuna-card-estado">
                     ${tieneInforme
                         ? `<span class="estado-con-informe">Informe: ${fechaFormateada}</span>`
@@ -282,12 +283,17 @@ async function showInformeDetalle(codigoComuna, nombreComuna, forceRefresh = fal
 
         contenido.innerHTML = `
             <div class="error-informe">
-                <p>${errorMsg}</p>
-                <button class="btn-reintentar" onclick="showInformeDetalle('${codigoComuna}', '${nombreComuna}', true)">
+                <p>${escapeHtml(errorMsg)}</p>
+                <button class="btn-reintentar"
+                        data-codigo="${escapeHtml(codigoComuna)}"
+                        data-nombre="${escapeHtml(nombreComuna)}">
                     Reintentar
                 </button>
             </div>
         `;
+        contenido.querySelector('.btn-reintentar').addEventListener('click', (e) => {
+            showInformeDetalle(e.currentTarget.dataset.codigo, e.currentTarget.dataset.nombre, true);
+        });
     }
 }
 
@@ -296,7 +302,7 @@ function renderInforme(data, nombreComuna, contenido, stats, fromCache = false, 
     const cacheIndicator = fromCache ? '<span class="cache-badge">En caché</span>' : '';
     stats.innerHTML = `
         <span class="stat-item">
-            <strong>${data.total_baches}</strong> baches reportados
+            <strong>${escapeHtml(data.total_baches)}</strong> baches reportados
         </span>
         ${cacheIndicator}
     `;
@@ -307,7 +313,7 @@ function renderInforme(data, nombreComuna, contenido, stats, fromCache = false, 
             <div class="sin-informe-mensaje">
                 <div class="sin-informe-icono">📋</div>
                 <h3>Comuna sin informe generado</h3>
-                <p>Aún no se ha generado un informe de baches para ${nombreComuna}.</p>
+                <p>Aún no se ha generado un informe de baches para ${escapeHtml(nombreComuna)}.</p>
                 <p class="sin-informe-hint">Para generar un informe, ve a la página
                    <a href="/">Reportar Baches</a>, selecciona esta comuna y usa el Asistente IA.</p>
             </div>
@@ -319,25 +325,15 @@ function renderInforme(data, nombreComuna, contenido, stats, fromCache = false, 
     let informeHTML = `
         <div class="informe-fecha">
             Generado el ${new Date(data.generated_at).toLocaleString('es-CL')}
-            ${fromCache && codigoComuna ? `<button class="btn-actualizar" onclick="showInformeDetalle('${codigoComuna}', '${nombreComuna}', true)">Actualizar</button>` : ''}
+            ${fromCache && codigoComuna
+                ? `<button class="btn-actualizar" data-codigo="${escapeHtml(codigoComuna)}" data-nombre="${escapeHtml(nombreComuna)}">Actualizar</button>`
+                : ''}
         </div>
         <div class="informe-resumen">
     `;
 
-    // Convertir markdown a HTML
-    let resumenHTML = data.resumen
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/^### (.*$)/gm, '<h4>$1</h4>')
-        .replace(/^## (.*$)/gm, '<h3>$1</h3>')
-        .replace(/^# (.*$)/gm, '<h2>$1</h2>')
-        .replace(/^- (.*$)/gm, '<li>$1</li>')
-        .replace(/\n\n/g, '</p><p>')
-        .replace(/\n/g, '<br>');
-
-    resumenHTML = resumenHTML.replace(/(<li>.*<\/li>)+/g, '<ul>$&</ul>');
-
-    informeHTML += `<p>${resumenHTML}</p></div>`;
+    // Resumen del LLM: escapado + markdown mínimo (ver escape.js)
+    informeHTML += mdToHtml(data.resumen) + '</div>';
 
     // Agregar top5 si existe
     if (data.top5 && data.top5.length > 0) {
@@ -349,8 +345,8 @@ function renderInforme(data, nombreComuna, contenido, stats, fromCache = false, 
                         <li class="top5-item">
                             <span class="top5-numero">${idx + 1}</span>
                             <div class="top5-info">
-                                <strong>${item.num_reportes} reportes</strong>
-                                <p>${item.descripcion || 'Sin descripción'}</p>
+                                <strong>${escapeHtml(item.num_reportes)} reportes</strong>
+                                <p>${escapeHtml(item.descripcion || 'Sin descripción')}</p>
                             </div>
                         </li>
                     `).join('')}
@@ -360,6 +356,13 @@ function renderInforme(data, nombreComuna, contenido, stats, fromCache = false, 
     }
 
     contenido.innerHTML = informeHTML;
+
+    const btnActualizar = contenido.querySelector('.btn-actualizar');
+    if (btnActualizar) {
+        btnActualizar.addEventListener('click', (e) => {
+            showInformeDetalle(e.currentTarget.dataset.codigo, e.currentTarget.dataset.nombre, true);
+        });
+    }
 }
 
 function volverAListaInformes() {
