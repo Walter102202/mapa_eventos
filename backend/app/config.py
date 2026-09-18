@@ -16,6 +16,13 @@ class Settings(BaseSettings):
 
     # App
     debug: bool = False
+    # Orígenes CORS permitidos, separados por coma. Vacío = sin CORS (frontend servido por el mismo FastAPI).
+    cors_origins: str = ""
+    # Rate limit por IP para endpoints que llaman a OpenAI. Formato de `limits`: "5/minute", "100/hour".
+    rate_limit_enabled: bool = True
+    rate_limit_ia: str = "5/minute"
+    # Token para operaciones administrativas (ej: ?refresh=true). Vacío = operación deshabilitada.
+    admin_token: str = ""
 
     @property
     def database_url(self) -> str:

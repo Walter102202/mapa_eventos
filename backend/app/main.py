@@ -10,8 +10,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from .config import get_settings
+from .limiter import limiter
 from .routers import comunas, reportes
 
 settings = get_settings()
@@ -38,6 +41,10 @@ La API utiliza capacidades espaciales de MySQL para:
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Rate limit por IP (slowapi). Los endpoints lo aplican con @limiter.limit(...).
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configurar CORS para permitir acceso desde el frontend
 app.add_middleware(
