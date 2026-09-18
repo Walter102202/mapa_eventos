@@ -1,13 +1,16 @@
 """Router para endpoints de comunas."""
 
+import logging
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from ..config import get_settings
 from ..database import get_db
+from ..limiter import limiter
 from ..schemas import (
     BachesListResponse,
     ComunaListResponse,
@@ -18,6 +21,8 @@ from ..schemas import (
     TopBacheCluster,
 )
 from ..services import agent_service, comuna_service, llm_service, reporte_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/comunas", tags=["comunas"])
 
@@ -148,11 +153,18 @@ def get_baches_por_comuna(
 @router.get(
     "/{codigo_comuna}/resumen",
     response_model=ResumenComunaResponse,
-    responses={404: {"model": ErrorResponse}}
+    responses={
+        403: {"model": ErrorResponse},
+        404: {"model": ErrorResponse},
+        429: {"description": "Demasiadas solicitudes"},
+    }
 )
+@limiter.limit(get_settings().rate_limit_ia)
 def get_resumen_comuna(
+    request: Request,
     codigo_comuna: str,
-    refresh: bool = Query(False, description="Forzar regeneración del resumen ignorando caché"),
+    refresh: bool = Query(False, description="Regenerar el resumen ignorando caché (requiere X-Admin-Token)"),
+    x_admin_token: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     """
@@ -164,11 +176,20 @@ def get_resumen_comuna(
     - Descripción de cada ubicación basada en comentarios de usuarios
 
     Los resúmenes se cachean por 24 horas para optimizar costos.
-    Use `refresh=true` para forzar una nueva generación.
+    Use `refresh=true` para forzar una nueva generación (requiere header `X-Admin-Token`).
 
     - **codigo_comuna**: Código oficial de la comuna
     - **refresh**: Si true, regenera el resumen ignorando la caché
     """
+    # refresh=true dispara una llamada a OpenAI: solo con token de administrador
+    if refresh:
+        admin_token = get_settings().admin_token
+        if not admin_token or x_admin_token != admin_token:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="refresh=true requiere el header X-Admin-Token",
+            )
+
     # Verificar que la comuna existe
     comuna = comuna_service.get_comuna_by_codigo(db, codigo_comuna)
     if not comuna:
@@ -215,9 +236,11 @@ def get_resumen_comuna(
     )
 
 
-@router.post("/agente")
+@router.post("/agente", responses={429: {"description": "Demasiadas solicitudes"}})
+@limiter.limit(get_settings().rate_limit_ia)
 def consultar_agente(
-    request: AgentPromptRequest,
+    request: Request,
+    body: AgentPromptRequest,
     db: Session = Depends(get_db)
 ):
     """
@@ -235,7 +258,7 @@ def consultar_agente(
     - "Busca baches en Avenida Irarrázaval"
     - "¿Qué comuna tiene más baches de severidad alta?"
     """
-    if not request.prompt or len(request.prompt.strip()) < 3:
+    if not body.prompt or len(body.prompt.strip()) < 3:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="El prompt debe tener al menos 3 caracteres"
@@ -244,8 +267,8 @@ def consultar_agente(
     try:
         result = agent_service.run_agent(
             db=db,
-            user_prompt=request.prompt,
-            selected_comuna=request.codigo_comuna
+            user_prompt=body.prompt,
+            selected_comuna=body.codigo_comuna
         )
 
         return {
@@ -254,11 +277,12 @@ def consultar_agente(
             "iterations": result.get("iterations", 0)
         }
 
-    except Exception as e:
+    except Exception:
+        logger.exception("Error al ejecutar el agente para prompt=%r comuna=%r", body.prompt[:80], body.codigo_comuna)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al procesar la consulta: {str(e)}"
-        ) from e
+            detail="Error al procesar la consulta. Intente nuevamente más tarde.",
+        ) from None
 
 
 @router.get("/{codigo_comuna}/informe")

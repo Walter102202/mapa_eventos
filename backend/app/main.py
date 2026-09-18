@@ -46,14 +46,22 @@ La API utiliza capacidades espaciales de MySQL para:
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Configurar CORS para permitir acceso desde el frontend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # En producción, especificar dominios permitidos
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+def parse_cors_origins(raw: str) -> list[str]:
+    """'https://a.cl, https://b.cl' -> ['https://a.cl', 'https://b.cl']. Vacío -> []."""
+    return [o.strip() for o in raw.split(",") if o.strip()]
+
+
+# CORS solo si hay orígenes configurados. El frontend lo sirve este mismo FastAPI,
+# así que en el despliegue normal no hace falta.
+cors_origins = parse_cors_origins(settings.cors_origins)
+if cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type", "X-Admin-Token"],
+    )
 
 # Registrar routers
 app.include_router(reportes.router)

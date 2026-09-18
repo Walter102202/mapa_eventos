@@ -1,6 +1,7 @@
 """Servicio para integración con OpenAI LLM."""
 
 import json
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -9,6 +10,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 def get_openai_client() -> OpenAI:
@@ -228,13 +231,13 @@ def generate_resumen(
             "from_cache": False
         }
 
-    except Exception as e:
-        # En caso de error, retornar resumen básico
+    except Exception:
+        logger.exception("Error generando resumen LLM para comuna %s", codigo_comuna)
         return {
-            "resumen": f"Error al generar resumen automático: {str(e)}. "
-                      f"La comuna de {nombre_comuna} tiene {total_baches} baches reportados.",
+            "resumen": "No se pudo generar el resumen automático en este momento. "
+                       f"La comuna de {nombre_comuna} tiene {total_baches} baches reportados.",
             "top5": top_clusters[:5] if top_clusters else [],
             "generated_at": datetime.now(),
             "from_cache": False,
-            "error": str(e)
+            "error": True
         }

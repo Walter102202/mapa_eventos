@@ -24,3 +24,16 @@ def test_settings_de_seguridad_tienen_defaults():
     assert s.cors_origins == ""
     assert s.rate_limit_ia == "2/minute"  # fijado por conftest vía env
     assert s.admin_token == ""
+
+
+def test_sin_cors_origins_no_se_permite_origen_ajeno(client):
+    r = client.get("/api/health", headers={"Origin": "https://malo.example"})
+    assert r.status_code == 200
+    assert "access-control-allow-origin" not in r.headers
+
+
+def test_parse_cors_origins_ignora_vacios_y_espacios():
+    from app.main import parse_cors_origins
+
+    assert parse_cors_origins("") == []
+    assert parse_cors_origins(" https://a.cl, https://b.cl ,") == ["https://a.cl", "https://b.cl"]
