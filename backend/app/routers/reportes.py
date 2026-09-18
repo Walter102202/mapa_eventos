@@ -2,10 +2,12 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from sqlalchemy.orm import Session
 
+from ..config import get_settings
 from ..database import get_db
+from ..limiter import limiter
 from ..schemas import ErrorResponse, ReporteCreate, ReporteCreatedResponse, SeveridadEnum
 from ..services import image_service, reporte_service
 
@@ -58,10 +60,14 @@ def crear_reporte(
     status_code=status.HTTP_201_CREATED,
     responses={
         400: {"model": ErrorResponse, "description": "Error en validación o ubicación"},
-        422: {"model": ErrorResponse, "description": "Imagen rechazada por moderación"}
+        413: {"model": ErrorResponse, "description": "Imagen demasiado grande"},
+        422: {"model": ErrorResponse, "description": "Imagen rechazada por moderación"},
+        429: {"description": "Demasiadas solicitudes"},
     }
 )
+@limiter.limit(get_settings().rate_limit_ia)
 async def crear_reporte_con_foto(
+    request: Request,
     lat: float = Form(...),
     lon: float = Form(...),
     severidad: str = Form("media"),
@@ -87,16 +93,23 @@ async def crear_reporte_con_foto(
 
     # Procesar imagen si se proporciona
     if foto and foto.filename:
-        # Leer contenido
-        image_data = await foto.read()
-
-        # Validar archivo
-        is_valid, error_msg = image_service.validate_image(foto.filename, len(image_data))
+        # Extensión antes de leer nada (barato)
+        is_valid, error_msg = image_service.validate_image(foto.filename, 0)
         if not is_valid:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
+
+        # Leer en chunks y cortar si supera el máximo: nunca cargamos un archivo gigante en memoria
+        image_data = await image_service.read_upload_limited(foto)
+        if image_data is None:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error_msg
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail=f"El archivo es muy grande. Máximo {image_service.MAX_FILE_SIZE // (1024 * 1024)} MB",
             )
+
+        # Contenido real (magic bytes), no solo la extensión
+        is_valid, error_msg = image_service.validate_image_content(image_data)
+        if not is_valid:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
 
         # Moderar contenido
         is_appropriate, rejection_reason = image_service.moderate_image(image_data)
