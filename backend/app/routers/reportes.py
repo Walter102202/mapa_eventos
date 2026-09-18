@@ -98,7 +98,8 @@ async def crear_reporte_con_foto(
         if not is_valid:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
 
-        # Leer en chunks y cortar si supera el máximo: nunca cargamos un archivo gigante en memoria
+        # Leer en chunks y cortar si supera el máximo: evita cargar un archivo gigante en memoria
+        # (el body ya está spooleado por Starlette; el límite real del request va en el proxy)
         image_data = await image_service.read_upload_limited(foto)
         if image_data is None:
             raise HTTPException(

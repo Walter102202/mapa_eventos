@@ -35,7 +35,7 @@ ruff check .                                      # config en pyproject.toml; B0
 - `.env` va en `backend/` (pydantic-settings lo lee relativo al cwd, por eso hay que arrancar desde `backend/`). Variables en `.env.example`.
 - Los tests que tocan un endpoint con datos mockean la función del service con `monkeypatch` (ver `tests/test_reportes.py`); no hay MySQL de prueba.
 - Tests del frontend (sin build): `node --test frontend/tests/*.test.js` desde la raíz. `frontend/js/escape.js` (`escapeHtml`, `mdToHtml`) se carga antes de `app.js` e `informes.js`; todo dato de la API, de Nominatim o del LLM que llegue a `innerHTML`/`bindPopup` pasa por ahí.
-- Variables de seguridad en `.env`: `CORS_ORIGINS` (vacío = sin CORS), `RATE_LIMIT_ENABLED`, `RATE_LIMIT_IA` (por IP, aplica a agente, resumen y con-foto), `ADMIN_TOKEN` (obligatorio para `?refresh=true`, header `X-Admin-Token`). En tests `conftest.py` deshabilita el limiter y fija `2/minute`; el fixture `limiter_on` lo enciende.
+- Variables de seguridad en `.env`: `CORS_ORIGINS` (vacío = sin CORS), `RATE_LIMIT_ENABLED`, `RATE_LIMIT_IA` (por IP y por endpoint, un bucket independiente para cada uno de agente, resumen y con-foto), `ADMIN_TOKEN` (obligatorio para `?refresh=true`, header `X-Admin-Token`). En tests `conftest.py` deshabilita el limiter y fija `2/minute`; el fixture `limiter_on` lo enciende.
 
 ## Arquitectura
 
@@ -54,7 +54,7 @@ ruff check .                                      # config en pyproject.toml; B0
 
 **Frontend** (`frontend/`): dos páginas sin build step. `js/app.js` es el mapa de reporte (Leaflet, geolocalización, búsqueda de direcciones vía Nominatim, chat con el agente). `js/informes.js` lista comunas y muestra informes guardados, con caché en `localStorage`. Ambas llaman a la API por ruta relativa `/api`, así que hay que servirlas desde FastAPI, no abrir el HTML a mano.
 
-**Seguridad.** `app/limiter.py` (slowapi, por IP) decora los endpoints que llaman a OpenAI; los endpoints decorados deben recibir `request: Request` con ese nombre exacto. Las fotos se leen en chunks con `image_service.read_upload_limited` (413 si superan 5 MB) y se validan por contenido con Pillow (`validate_image_content`) antes de la moderación. Los `except` de agente y resumen loggean con `logging` y devuelven mensajes genéricos.
+**Seguridad.** `app/limiter.py` (slowapi, por IP) decora los endpoints que llaman a OpenAI; los endpoints decorados deben recibir `request: Request` con ese nombre exacto. Las fotos se leen en chunks con `image_service.read_upload_limited` (413 si superan 5 MB) y se validan por contenido con Pillow (`validate_image_content`) antes de la moderación. Ese límite protege la memoria, no la request: Starlette ya spooleó el body a disco antes de llegar al handler, así que en despliegue hace falta un límite de tamaño de body en el proxy (por ejemplo client_max_body_size en nginx). Los `except` de agente y resumen loggean con `logging` y devuelven mensajes genéricos.
 
 ## Cambios de esquema
 

@@ -1,6 +1,7 @@
 """Router para endpoints de comunas."""
 
 import logging
+import secrets
 from datetime import datetime
 from typing import Optional
 
@@ -184,7 +185,7 @@ def get_resumen_comuna(
     # refresh=true dispara una llamada a OpenAI: solo con token de administrador
     if refresh:
         admin_token = get_settings().admin_token
-        if not admin_token or x_admin_token != admin_token:
+        if not admin_token or not secrets.compare_digest(x_admin_token or "", admin_token):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="refresh=true requiere el header X-Admin-Token",

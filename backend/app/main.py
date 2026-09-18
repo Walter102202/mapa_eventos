@@ -46,6 +46,8 @@ La API utiliza capacidades espaciales de MySQL para:
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# CORS_ORIGINS acepta "*", pero nunca se debe combinar con allow_credentials=True
+# (se deja fijo en False más abajo). El uso previsto es una lista explícita de dominios.
 def parse_cors_origins(raw: str) -> list[str]:
     """'https://a.cl, https://b.cl' -> ['https://a.cl', 'https://b.cl']. Vacío -> []."""
     return [o.strip() for o in raw.split(",") if o.strip()]
