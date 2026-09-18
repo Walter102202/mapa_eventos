@@ -102,7 +102,7 @@ async def crear_reporte_con_foto(
         image_data = await image_service.read_upload_limited(foto)
         if image_data is None:
             raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                 detail=f"El archivo es muy grande. Máximo {image_service.MAX_FILE_SIZE // (1024 * 1024)} MB",
             )
 
